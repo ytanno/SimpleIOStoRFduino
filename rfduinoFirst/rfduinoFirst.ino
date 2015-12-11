@@ -2,6 +2,9 @@
 //ref https://github.com/RFduino/RFduino
 // """" Download Arduino 1.6.6 or newer. """""
 
+int sv = 0;
+int svf = 0.0f;
+
 void setup()
 {
   Serial.begin(9600);
@@ -12,8 +15,17 @@ void setup()
 
 void loop()
 {
-  RFduinoBLE.send(10); // send number 1 to connected BLE device
-  delay(3000); // delay for 3 seconds
+  RFduinoBLE.send(sv);
+  //RFduinoBLE.sendFloat(svf); It can not be taken yet from IOS
+  delay(20); 
+  sv++;
+  svf += 0.1f;
+
+  if(sv > 255) 
+  {
+    sv = 0;
+    svf = 0.0f;
+  } 
 }
 
 void RFduinoBLE_onReceive(char *data, int len)

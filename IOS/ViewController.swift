@@ -6,6 +6,7 @@ import UIKit
 import CoreBluetooth
 
 //ref http://qiita.com/shu223/items/78614325ce25bf7f4379
+//ref http://www.amazon.co.jp/dp/4883379736
 //rfduino haracteristic UUID: "2221 - Read, 2222 - Write
 //maybe transform onece data max size is 256 byte
 
@@ -13,7 +14,6 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
 {
     var centralManager: CBCentralManager!
     var peripheral: CBPeripheral!
-    var connected: Bool!
     var readComp: Bool!
     var writeComp: Bool!
     
@@ -25,23 +25,34 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     {
         super.viewDidLoad()
         
-        self.connected = false
         self.readComp = true
         self.writeComp = true
         
         self.centralManager = CBCentralManager(delegate: self, queue: nil)
-        _ = NSTimer.scheduledTimerWithTimeInterval(1.0, target: self, selector: Selector("ReceiveTimer"), userInfo: nil, repeats: true)
+        
+        // IOS go to hear rfduino
+        //_ = NSTimer.scheduledTimerWithTimeInterval(1.0, target: self, selector: Selector("ReceiveTimer"), userInfo: nil, repeats: true)
     }
     
+    ////////////////////////////////////////////////////////////////////////
+    /// Write Action
     @IBAction func PushSendButton(sender: UIButton)
     {
-        if(self.writeComp == true && self.connected == true)
+        if(self.writeComp == true && self.peripheral.state == CBPeripheralState.Connected)
         {
             writeComp = false
             let data: NSData! = sendTextField.text!.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion:true)
             
             print(data)
+            
+            if(self.peripheral.services != nil)
+            {
+                if(self.peripheral.services![0].characteristics != nil)
+                {
+            
             peripheral .writeValue(data, forCharacteristic: self.peripheral.services![0].characteristics![1], type: CBCharacteristicWriteType.WithResponse)
+                }
+            }
         }
     }
   
@@ -60,19 +71,31 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         print("Write成功！")
         writeComp = true
     }
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
     
-    
-    //read on timer
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //read on timer  ( not used )
     func ReceiveTimer()
     {
-        if(self.connected == true && self.readComp == true)
+        if(self.peripheral.state == CBPeripheralState.Connected && self.readComp == true)
         {
             self.readComp = false;
-             //use first characteristics            
-            self.peripheral.readValueForCharacteristic(self.peripheral.services![0].characteristics![0])
+             //use first characteristics    
+            
+            if(self.peripheral.services != nil)
+            {
+                if(self.peripheral.services![0].characteristics != nil)
+                {
+                    self.peripheral.readValueForCharacteristic(self.peripheral.services![0].characteristics![0])
+                }
+            }
         }
     }
+    
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    
     
     func centralManagerDidUpdateState(central: CBCentralManager)
     {
@@ -80,15 +103,17 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     }
     
     
-    
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Connect Init Action
+    // scan device -> connect device -> search service -> search Characteristics -> set notify from rfduino
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     @IBAction func PushConnectButton(sender: UIButton)
     {
-        self.centralManager.scanForPeripheralsWithServices(nil, options: nil)
+        if(self.centralManager.state == CBCentralManagerState.PoweredOn)
+        {
+            self.centralManager.scanForPeripheralsWithServices(nil, options: nil)
+        }
     }
-    
-    
-    
-    
     
     
     //result after scan
@@ -97,22 +122,17 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         advertisementData: [String : AnyObject],
         RSSI: NSNumber)
     {
-        print("peripheral:" + peripheral.description);
-        if(peripheral.name! == "myRFduino")
+       // print("peripheral:" + peripheral.description);
+        if(peripheral.name != nil)
         {
-            self.peripheral = peripheral;
-            if(self.peripheral.state == CBPeripheralState.Disconnected)
+            if(peripheral.name == "myRFduino")
             {
-                self.centralManager.connectPeripheral(self.peripheral, options: nil);
+                self.peripheral = peripheral;
+                if(self.peripheral.state == CBPeripheralState.Disconnected)
+                {
+                    self.centralManager.connectPeripheral(self.peripheral, options: nil);
+                }
             }
-            
-            /*
-            else if(self.peripheral.state ==
-                CBPeripheralState.Connected)
-            {
-
-            }
-            */
         }
     }
     
@@ -181,12 +201,23 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         
         if (service.characteristics?.count > 0)
         {
-           self.connected = true
-           connectButton.setTitle("OK", forState: .Normal)
-           self.receiveView.text = ""
+            connectButton.setTitle("OK", forState: .Normal)
+            self.receiveView.text = ""
+            self.peripheral.setNotifyValue(true, forCharacteristic: characteristics[0])
+            //                            false is stop notify
         }
     }
     
+    //after notify start and stop
+    func peripheral(peripheral: CBPeripheral, didUpdateNotificationStateForCharacteristic characteristic: CBCharacteristic, error: NSError?)
+    {
+        if(error != nil)
+        {
+            
+        }
+    }
+    
+    //notify result and read result
     //after read end
     func peripheral(peripheral: CBPeripheral,
         didUpdateValueForCharacteristic characteristic: CBCharacteristic,
@@ -198,15 +229,22 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
             return
         }
         
-        print("Succeeded! service uuid: \(characteristic.service.UUID), characteristic uuid: \(characteristic.UUID), value: \(characteristic.value?.description)")
-       
-        let v = characteristic.value?.description;
-        print(v);
-        receiveView.text = receiveView.text + v!
+        /*
+        var byte: CUnsignedChar = 0
+        characteristic.value?.getBytes(&byte, length: 1)
+        print("get 1 byte is %d", (byte))
+        */
         
-        if(receiveView.text.characters.count > 50)
+        let v = characteristic.value?.description;
+        if(v != nil)
         {
-            receiveView.text! = "";
+            print("Succeeded! service uuid: \(characteristic.service.UUID), characteristic uuid: \(characteristic.UUID), value: \(characteristic.value?.description)")
+            print(v);
+            receiveView.text = receiveView.text + v!
+            if(receiveView.text.characters.count > 50)
+            {
+                receiveView.text! = "";
+            }
         }
         readComp = true;
     }
