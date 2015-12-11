@@ -6,7 +6,6 @@ import UIKit
 import CoreBluetooth
 
 //ref http://qiita.com/shu223/items/78614325ce25bf7f4379
-//ref http://www.amazon.co.jp/dp/4883379736
 //rfduino haracteristic UUID: "2221 - Read, 2222 - Write
 //maybe transform onece data max size is 256 byte
 
@@ -16,6 +15,10 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     var peripheral: CBPeripheral!
     var readComp: Bool!
     var writeComp: Bool!
+    
+    
+    let serviceUUIDs:[CBUUID] = [CBUUID(string: "9a444680-9fd8-11e5-8994-feff819cdc9f")]
+    
     
     @IBOutlet weak var connectButton: UIButton!
     @IBOutlet weak var receiveView: UITextView!
@@ -111,7 +114,15 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     {
         if(self.centralManager.state == CBCentralManagerState.PoweredOn)
         {
-            self.centralManager.scanForPeripheralsWithServices(nil, options: nil)
+            if(connectButton.titleLabel!.text == "Connect")
+            {
+                self.centralManager.scanForPeripheralsWithServices(serviceUUIDs, options: nil)
+            }
+            else
+            {
+                self.centralManager.cancelPeripheralConnection(self.peripheral)
+                connectButton.setTitle("Connect", forState: .Normal)
+            }
         }
     }
     
@@ -125,14 +136,14 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
        // print("peripheral:" + peripheral.description);
         if(peripheral.name != nil)
         {
-            if(peripheral.name == "myRFduino")
+            print(peripheral.name)
+            self.peripheral = peripheral
+            if(self.peripheral.state == CBPeripheralState.Disconnected)
             {
-                self.peripheral = peripheral;
-                if(self.peripheral.state == CBPeripheralState.Disconnected)
-                {
-                    self.centralManager.connectPeripheral(self.peripheral, options: nil);
-                }
+                self.centralManager.connectPeripheral(self.peripheral, options: nil);
             }
+            self.centralManager.stopScan()
+        
         }
     }
     
@@ -201,7 +212,7 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         
         if (service.characteristics?.count > 0)
         {
-            connectButton.setTitle("OK", forState: .Normal)
+            connectButton.setTitle("Disconnect", forState: .Normal)
             self.receiveView.text = ""
             self.peripheral.setNotifyValue(true, forCharacteristic: characteristics[0])
             //                            false is stop notify
