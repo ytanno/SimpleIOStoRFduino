@@ -20,7 +20,7 @@ void loop()
 {
   RFduinoBLE.send(sv);
   //RFduinoBLE.sendFloat(svf); It can not be taken yet from IOS
-  delay(20); 
+  delay(1000); 
   sv++;
   svf += 0.1f;
 
