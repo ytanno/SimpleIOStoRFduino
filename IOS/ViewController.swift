@@ -249,8 +249,12 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         let v = characteristic.value?.description;
         if(v != nil)
         {
-            print("Succeeded! service uuid: \(characteristic.service.UUID), characteristic uuid: \(characteristic.UUID), value: \(characteristic.value?.description)")
-            print(v);
+            //print("Succeeded! service uuid: \(characteristic.service.UUID), characteristic uuid: \(characteristic.UUID), value: \(characteristic.value?.description)")
+            
+            print(self.peripheral.services![0].characteristics![0].UUID) //read uuid
+            print(self.peripheral.services![0].characteristics![1].UUID) //write uuid
+            
+            print(v); //notify value
             receiveView.text = receiveView.text + v!
             if(receiveView.text.characters.count > 50)
             {
